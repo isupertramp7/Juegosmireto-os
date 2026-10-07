@@ -1,0 +1,81 @@
+@import 'tailwindcss';
+
+/* ===========================================================================
+   Paleta e identidad de Mis Retoños (@juegosmisretonos)
+   Tomada del logo: arcoíris pastel con orejas de conejo sobre círculo crema.
+   Todo el sitio usa estos tokens, así que cambiar un color aquí lo cambia
+   en todas partes.
+   =========================================================================== */
+@theme {
+  /* Fondos */
+  --color-crema: #fdfaf6;
+  --color-arena: #f6efe6;
+  --color-arena-oscura: #ebe0d2;
+
+  /* Acento principal: el terracota del arcoíris */
+  --color-terracota: #c4836a;
+  --color-terracota-oscuro: #a96c54;
+  --color-terracota-claro: #e3b9a6;
+  --color-terracota-pastel: #f6e6de;
+
+  /* Resto del arcoíris */
+  --color-salvia: #a4b49c;
+  --color-salvia-claro: #c9d4c2;
+  --color-salvia-pastel: #e8eee4;
+  --color-rosa: #e4b7b2;
+  --color-rosa-claro: #f2dad6;
+  --color-rosa-pastel: #faeeeb;
+  --color-mostaza: #d8b274;
+  --color-mostaza-claro: #ecd9b6;
+  --color-cielo: #b7c9d3;
+  --color-cielo-claro: #dde7ec;
+
+  /* Texto */
+  --color-tinta: #4a403a;
+  --color-tinta-media: #7d7069;
+  --color-tinta-suave: #a79a92;
+
+  --font-display: 'Fraunces', 'Georgia', serif;
+  --font-sans: 'Quicksand', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-crema);
+  color: var(--color-tinta);
+  font-weight: 500;
+}
+
+/* Animación suave de entrada para tarjetas y paneles */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-pop-in {
+  animation: pop-in 0.25s ease-out both;
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+.animate-float-slow {
+  animation: float-slow 7s ease-in-out infinite;
+}
