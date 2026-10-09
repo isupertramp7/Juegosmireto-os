@@ -77,14 +77,24 @@ export function rowToBooking(row: BookingRow): Booking {
   }
 }
 
-/** Traduce el error crudo de Postgres a algo que el cliente entienda. */
-function friendly(message: string): string {
-  if (/Sin cupo/i.test(message)) {
-    return 'Alguien acaba de tomar ese bloque. Elige otro horario u otra fecha.'
-  }
-  if (/no está disponible|ya pasó|anticipación/i.test(message)) return message
-  if (/Failed to fetch|NetworkError/i.test(message)) {
+/**
+ * Traduce el error crudo de Postgres a algo que el cliente entienda.
+ *
+ * El código P0001 es el que Postgres asigna a un `raise exception` sin código
+ * propio, y en este esquema eso solo ocurre dentro de nuestras funciones. O
+ * sea: si viene P0001, el mensaje lo escribimos nosotros pensando en el
+ * cliente y se puede mostrar tal cual. Cualquier otro código es una falla que
+ * no queremos exponer (nombres de tablas, restricciones, etc.).
+ */
+function friendly(error: { message: string; code?: string }): string {
+  if (/Failed to fetch|NetworkError/i.test(error.message)) {
     return 'No pudimos conectar con el servidor. Revisa tu conexión.'
+  }
+  if (error.code === 'P0001') {
+    if (/Sin cupo/i.test(error.message)) {
+      return 'Alguien acaba de tomar ese bloque. Elige otro horario u otra fecha.'
+    }
+    return error.message
   }
   return 'No pudimos registrar la reserva. Inténtalo otra vez.'
 }
@@ -166,11 +176,18 @@ export interface CreateBookingInput {
   date: string
   slot: SlotId
   customer: Customer
+  /**
+   * Campo trampa del formulario. Una persona lo deja vacío siempre porque no
+   * lo ve; un bot que rellena todos los inputs lo llena y la base rechaza la
+   * reserva. Ver supabase/migrations/0004_limite_reservas.sql.
+   */
+  honeypot?: string
 }
 
 /**
- * Crea la reserva a través de la función create_booking, que valida cupo
- * dentro de la base de datos. El navegador nunca inserta directo en la tabla.
+ * Crea la reserva a través de la función create_booking, que valida cupo y
+ * aplica los límites antispam dentro de la base de datos. El navegador nunca
+ * inserta directo en la tabla.
  */
 export async function createBooking(
   input: CreateBookingInput,
@@ -184,8 +201,9 @@ export async function createBooking(
     p_address: input.customer.address,
     p_email: input.customer.email,
     p_notes: input.customer.notes,
+    p_website: input.honeypot ?? '',
   })
-  if (error) throw new Error(friendly(error.message))
+  if (error) throw new Error(friendly(error))
   return rowToBooking(data as BookingRow)
 }
 

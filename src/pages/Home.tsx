@@ -37,13 +37,14 @@ export default function Home() {
     document.getElementById('agenda')?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  async function handleConfirm(customer: Customer) {
+  async function handleConfirm(customer: Customer, honeypot: string) {
     if (!selection) throw new Error('No hay selección activa')
     const booking = await createBooking({
       inflatableId: selection.inflatableId,
       date: selectedDate,
       slot: selection.slot,
       customer,
+      honeypot,
     })
     // El calendario tiene que reflejar el cupo recién tomado.
     await refreshAvailability()

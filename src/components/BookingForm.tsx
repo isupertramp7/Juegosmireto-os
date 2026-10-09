@@ -9,7 +9,7 @@ interface Props {
   date: string
   slot: SlotId
   onClose: () => void
-  onConfirm: (customer: Customer) => Promise<Booking>
+  onConfirm: (customer: Customer, honeypot: string) => Promise<Booking>
 }
 
 const EMPTY: Customer = {
@@ -48,6 +48,16 @@ export function BookingForm({
   onConfirm,
 }: Props) {
   const [customer, setCustomer] = useState<Customer>(EMPTY)
+  /**
+   * Campo trampa: está en el DOM pero fuera de la pantalla, así que una
+   * persona nunca lo llena. Los bots que recorren el formulario rellenando
+   * todos los inputs sí, y la base rechaza esa reserva.
+   *
+   * Es un complemento, no la defensa principal: un bot que llama la API
+   * directo ni siquiera carga este formulario. El freno de verdad son los
+   * límites de supabase/migrations/0004_limite_reservas.sql.
+   */
+  const [honeypot, setHoneypot] = useState('')
   const [errors, setErrors] = useState<Errors>({})
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -76,6 +86,9 @@ export function BookingForm({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    // El botón se deshabilita al enviar, pero un Enter repetido puede colarse
+    // antes del re-render y disparar dos reservas iguales.
+    if (submitting) return
     const found = validate(customer)
     if (Object.keys(found).length > 0) {
       setErrors(found)
@@ -84,7 +97,7 @@ export function BookingForm({
     setSubmitting(true)
     setServerError(null)
     try {
-      setConfirmed(await onConfirm(customer))
+      setConfirmed(await onConfirm(customer, honeypot))
     } catch (err) {
       setServerError(
         err instanceof Error ? err.message : 'No pudimos registrar la reserva.',
@@ -196,6 +209,29 @@ export function BookingForm({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 p-5" noValidate>
+            {/*
+              Campo trampa. Lo sacamos de la pantalla en vez de usar
+              display:none porque varios bots saltan los campos ocultos con
+              CSS, pero rellenan los que están posicionados fuera del borde.
+              aria-hidden y tabIndex lo dejan fuera del lector de pantalla y
+              del recorrido con Tab, así que nadie real lo encuentra.
+            */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-[9999px] top-0 h-0 w-0 overflow-hidden"
+            >
+              <label htmlFor="field-website">Deja este campo vacío</label>
+              <input
+                id="field-website"
+                name="website"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypot}
+                onChange={(event) => setHoneypot(event.target.value)}
+              />
+            </div>
+
             <Field
               label="Nombre y apellido"
               error={errors.name}

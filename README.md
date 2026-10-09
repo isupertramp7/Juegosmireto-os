@@ -112,11 +112,48 @@ El calendario **no** adivina: lee la base de datos.
 El público interactúa con `bookings` únicamente a través de las dos funciones
 `SECURITY DEFINER`: una devuelve conteos, la otra crea una reserva validada.
 
-**Pendiente antes de salir a producción:** cualquiera puede llamar a
-`create_booking()`, así que una persona malintencionada podría llenarte la
-agenda con reservas falsas. Para un negocio chico el panel basta (las borras y
-listo), pero si crece conviene agregar hCaptcha/Turnstile o un límite por IP con
-una Edge Function.
+### Freno al spam de reservas
+
+`create_booking()` es pública a propósito: la gente tiene que poder reservar
+sin crearse una cuenta. Pero la publishable key viaja en el JavaScript del
+sitio, así que cualquiera puede leerla y llamar la función directo por HTTP,
+saltándose el formulario. Sin frenos, un script llena la agenda de reservas
+falsas en segundos.
+
+Por eso los límites viven **dentro de la base de datos**
+(`supabase/migrations/0004_limite_reservas.sql`). Lo que se valide en el
+navegador no cuenta: quien llama la API directo se lo salta.
+
+| Límite | Tope | Por qué |
+|---|---|---|
+| Por IP, última hora | 3 reservas | Frena el script obvio |
+| Por IP, último día | 8 reservas | Frena el goteo lento |
+| Por teléfono, último día | 5 reservas | Para quien rota de IP |
+| Global, última hora | 60 reservas | Avalancha desde muchas IP |
+| Duplicado exacto | 0 | Mismo teléfono, juego, fecha y bloque |
+
+Además hay un **campo trampa** en el formulario: un input escondido fuera de la
+pantalla que una persona nunca llena y un bot de formularios sí. Es un
+complemento, no la defensa principal — un bot que llama la API directo ni
+siquiera carga el formulario.
+
+Los topes son constantes al inicio de la función. Para cambiarlos, edita el
+bloque `declare` y vuelve a ejecutar el archivo.
+
+La tabla `booking_attempts` guarda IP, teléfono y hora de cada reserva creada,
+y se purga sola a los 7 días. Está aparte de `bookings` por dos razones: la IP
+es un dato personal y no queremos que viva para siempre, y si borras las
+reservas falsas desde el panel el registro **no** se borra, así que el atacante
+no recupera su cupo limpiando la agenda.
+
+**Límite conocido:** solo se cuentan las reservas que se crean. Cuando la
+función rechaza, Postgres revierte la transacción completa y el registro se
+iría con ella. No es grave: lo que ensucia la agenda son las reservas que
+entran, y esas son justo las que se cuentan.
+
+Si algún día el spam se vuelve un problema real a pesar de esto, el siguiente
+paso es un captcha invisible (Cloudflare Turnstile o hCaptcha) validado en una
+Edge Function.
 
 ---
 
@@ -126,6 +163,8 @@ una Edge Function.
 supabase/migrations/
   0001_init.sql            tablas, RLS, funciones, Realtime y catálogo inicial
   0002_agregar_admin.sql   convierte tu usuario en administrador
+  0003_catalogo_mis_retonos.sql  catálogo real (no pisa precios ya puestos)
+  0004_limite_reservas.sql       topes antispam en create_booking()
 
 src/
   App.tsx                     rutas: / (sitio) y /admin (panel, carga diferida)
