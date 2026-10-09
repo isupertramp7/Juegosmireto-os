@@ -164,13 +164,45 @@ src/
 
 ## Publicar
 
+En producción: <https://juegosmiretonos.vercel.app>
+
+Vercel está conectado a este repositorio, así que cada `git push` a `main`
+dispara un despliegue. No hay que subir `dist/` a mano.
+
 ```bash
-npm run build
+npm run build    # para probar el build de producción en local
 ```
 
-Sube `dist/` a Netlify, Vercel o Cloudflare Pages. Ya están incluidos
-`public/_redirects` (Netlify/Cloudflare) y `vercel.json` para que `/admin`
-funcione al recargar la página.
+Ya están incluidos `public/_redirects` (Netlify/Cloudflare) y `vercel.json`
+para que `/admin` funcione al recargar la página.
 
-En el panel del hosting agrega las mismas dos variables de entorno
-(`VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`) antes de desplegar.
+### Las variables de entorno en producción
+
+Vite **no** lee variables en tiempo de ejecución: las incrusta dentro del
+JavaScript cuando corre `npm run build`. Dos consecuencias:
+
+- Las variables tienen que existir en el momento del build, no después.
+- Cambiar una variable obliga a un build nuevo. Recargar la página no basta.
+
+Los valores de producción están en **`.env.production`**, versionado a
+propósito. Así el build de Vercel los encuentra sin configurar nada en su
+panel. Se puede versionar porque esas dos variables son públicas por diseño:
+viajan al navegador de cada visitante dentro del bundle, así que ya son
+visibles para cualquiera. Lo que protege los datos son las políticas RLS, no
+el secreto de la clave.
+
+Si prefieres sacarlas del repositorio, defínelas en Vercel → *Settings* →
+*Environment Variables* (los tres entornos) y borra `.env.production`: las
+variables del entorno tienen prioridad sobre los archivos `.env`.
+
+Cualquier **secreto real** (`service_role key`, tokens de terceros) va
+únicamente en el panel de Vercel y en `.env.local`. Nunca en
+`.env.production`.
+
+### Autenticación y el dominio
+
+En Supabase → **Authentication** → **URL Configuration**:
+
+- **Site URL**: `https://juegosmiretonos.vercel.app`
+- **Redirect URLs**: `https://juegosmiretonos.vercel.app/**` y
+  `http://localhost:5173/**`
